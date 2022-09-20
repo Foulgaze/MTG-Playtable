@@ -1,17 +1,24 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using System;
     
-    public class Player
+    public class Player 
     {
+        public Player()
+        {
+            missedTextures = new List<string>();
+        }
         public string username {get;set;}
         public string uuid {get;set;}
         public bool isReady{get;set;}
         public List<Card> deckList {get;set;}
+        public List<string> cardList{get;set;}
 
         public List<string> missedCards {get;set;}
         public List<string> missedTextures {get;set;}
+
+     
         
     }
 

@@ -22,6 +22,7 @@ public class serverManager : MonoBehaviour
     {
         client = null;
         uuid = System.Guid.NewGuid().ToString();
+        gameController.uuid = uuid;
         //Connect("localhost","connection",54000);
     }
 
@@ -159,7 +160,7 @@ public class serverManager : MonoBehaviour
                     }
                     else
                     {
-                        sendMessage($"{username},{msgUUID}","01","05");
+                        sendMessage($"{gameController.readyUpCount},{gameController.readyUpTotal},{username},{msgUUID}","01","05");
                     }
                     serverConnectUI.addMessage($"{instruction} Has Connected!");
                     serverConnectUI.updateCurrentPlayerList(gameController.getPlayerList());
@@ -193,9 +194,17 @@ public class serverManager : MonoBehaviour
                 {
                     string[] playerAddMessage = instruction.Split(',');
 
-                    if(playerAddMessage[1] == uuid) //UUID 
+                    if(playerAddMessage[playerAddMessage.Length-1] == uuid) //UUID 
                     {
-                        gameController.addToPlayerList(false, playerAddMessage[0],msgUUID);
+                        int localReadyTotal = -1;
+                        int localReadyUpCount = -1;
+                        if(!Int32.TryParse(playerAddMessage[0],out localReadyUpCount) || !Int32.TryParse(playerAddMessage[1],out localReadyTotal))
+                        {
+                            Debug.LogError($"Probleming parsing readyUpCount: {playerAddMessage[0]}, readyUpTotal: {playerAddMessage[1]}");
+                        }
+                        gameController.readyUpTotal = localReadyTotal;
+                        gameController.readyUpCount = localReadyUpCount;
+                        gameController.addToPlayerList(false, playerAddMessage[2],msgUUID);
                         serverConnectUI.updateCurrentPlayerList(gameController.getPlayerList());
                     }
                     break;
@@ -208,6 +217,18 @@ public class serverManager : MonoBehaviour
                 case 7:
                 {
                     gameController.parseDeck(instruction, msgUUID);
+                    break;
+                }
+                case 8:
+                {
+                    string[] playerMessage = instruction.Split(',');
+                    gameController.releaseCardOnField(Int32.Parse(playerMessage[0]),Int32.Parse(playerMessage[1]),Int32.Parse(playerMessage[2]),uuid);
+                    break;
+                }
+                case 9:
+                {
+                    string[] playerMessage = instruction.Split(',');
+                    gameController.addCardToHand(Int32.Parse(playerMessage[0]),Int32.Parse(playerMessage[1]),Int32.Parse(playerMessage[2]),Int32.Parse(playerMessage[3]),msgUUID.Equals(uuid));
                     break;
                 }
             }

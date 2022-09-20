@@ -10,12 +10,19 @@ public class cameraMovement : MonoBehaviour
     public bool isInverted = true;
 
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
+        checkForMovement();
+    }
+
+    bool checkForMovement()
+    {
+        bool moved = false;
         if (Input.GetAxisRaw("Horizontal") != 0 || Input.GetAxisRaw("Vertical") != 0) 
         {
             float invert = isInverted? -1 : 1;
             transform.position += moveSpeed * new Vector3(Input.GetAxisRaw("Horizontal")*invert, 0, Input.GetAxisRaw("Vertical")*invert) * Time.deltaTime;
+            moved = true;
         }
         if(Input.mouseScrollDelta.y != 0)
         {
@@ -23,8 +30,10 @@ public class cameraMovement : MonoBehaviour
             if(newPosition.y > horiFloor)
             {
                 transform.position += transform.forward * Input.mouseScrollDelta.y * Time.deltaTime * scrollSpeed;
+                moved = true;
             }
             
         }
+        return moved;
     }
 }

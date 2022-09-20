@@ -15,20 +15,29 @@ public class gameController : MonoBehaviour
     Dictionary<string, Card> cardDict = new Dictionary<string, Card>();
     Dictionary<string, CardInfo> cardInfoDict = new Dictionary<string, CardInfo>();
     Dictionary<string, Texture2D> cardPictureDict = new Dictionary<string, Texture2D>();
-    int readyUpCount = 0;
-    int readyUpTotal = 4; // Arbitrary Number
+    Dictionary<string, Texture2D> playableCardDict = new Dictionary<string, Texture2D>();
+
+    public int readyUpCount = 0;
+    public int readyUpTotal = 2; // Arbitrary Number
     GameObject plane;
     public Texture2D cardback;
     public serverConnectUI serverConnectUI;
     public GameObject card;
+
+    public playtableGenerator playtableGenerator;
+    public cardPlaying cardPlaying;
 
     bool isJSONFileLoaded = false;
 
     HashSet<string> uuidList = new HashSet<string>();
     HashSet<string> nameList = new HashSet<string>();
 
+    public string uuid;
+
     int individualDeckLoad =0 ;
     int cardsLoaded = 0;
+
+    int playerNumber;
     async void Start()
     {
         //readFile();
@@ -77,6 +86,9 @@ public class gameController : MonoBehaviour
         Player currentPlayer = getPlayer(uuid);
         loadCards(deckList,currentPlayer,uuid);
     }
+
+
+
     public Player getPlayer(string uuid)
     {
         for(int i = 0; i < playerList.Count; ++i)
@@ -146,11 +158,13 @@ public class gameController : MonoBehaviour
     {
         readFileSync();
         string[] cards = cardList.Split("\n");
+        List<string> actualDeckList = new List<string>();
         foreach(string card in cards)
         {
             if(card.Length > 2 && card[0] != '/')
             {
                 ++individualDeckLoad;
+                actualDeckList.Add(card);
             }
             
         }
@@ -173,14 +187,16 @@ public class gameController : MonoBehaviour
             }
             
         }
+        player.cardList = actualDeckList;
     }
     IEnumerator GetTexture(string url, string name, Player player)
     {
         UnityWebRequest www = UnityWebRequestTexture.GetTexture(url);
         yield return www.SendWebRequest();
 
-        if (www.result != UnityWebRequest.Result.Success)
+        if (www.result != UnityWebRequest.Result.Success )
         {
+            Debug.Log($"{name} Error");
             player.missedTextures.Add(name);
 
         }
@@ -190,16 +206,72 @@ public class gameController : MonoBehaviour
             Texture2D atlas = new Texture2D(myTexture.width *3, myTexture.height);
             atlas.PackTextures(new Texture2D[] { myTexture, cardback },0);
             cardPictureDict.Add(name,myTexture);
+            playableCardDict.Add(name,atlas);
         }
         //Debug.Log($"Finished Loading {name}");
         ++cardsLoaded;
         callbackFunction();
+    }
+
+    void generateGame()
+    {
+        playerList.Sort(delegate(Player x, Player y){return x.uuid.CompareTo(y.uuid);});
+        for(int i = 0; i < playerList.Count; ++i)
+        {
+            if(playerList[i].uuid == uuid)
+            {
+                playerNumber = i;
+            }
+        }
+        if(playerNumber % 2 != 0)
+        {
+            Camera.main.GetComponent<cameraMovement>().isInverted = false;
+        }
+
+        playtableGenerator.playerCount = playerList.Count;
+        playtableGenerator.actualPlayer = playerNumber;
+        cardPlaying.player = playerNumber;
+        cardPlaying.initPlayerList(playerList.Count);
+        playtableGenerator.startManaging();
+        string temp = "";
+        foreach(string card in cardPictureDict.Keys)
+        {
+            temp += card + ",";
+        }
+        Debug.Log(temp);
+        for(int i = 0; i < playerList.Count; ++i)
+        {
+            for(int a = 0; a < playerList[i].cardList.Count; ++a)
+            {
+                string currCard = playerList[i].cardList[a];
+                int result;
+                if(Int32.TryParse(currCard.Substring(0,currCard.IndexOf(" ")),out result))
+                {
+                    currCard = currCard.Substring(currCard.IndexOf(" ")+1);
+                    for(int c = 0; c < result; ++c)
+                    {
+                        if(cardPictureDict.ContainsKey(currCard))
+                        {
+                            cardPlaying.addCard(cardPictureDict[currCard],i, playableCardDict[currCard]);
+                        }
+                        else
+                        {
+                            Debug.LogError($"Was not able to find card! {currCard}");
+                        }
+                    }
+                    
+                }
+                
+
+            }
+        }
     }
     public void callbackFunction()
     {
         if(individualDeckLoad == cardsLoaded && uuidList.Count == readyUpTotal)
         {
             serverConnectUI.switchToPlay();
+            generateGame();
         }
         else
         {
@@ -208,7 +280,19 @@ public class gameController : MonoBehaviour
         }
     
     }
-    IEnumerator applyTexture( GameObject go) 
+
+    public int getPlayerNumFromUUID(string uuid)
+    {
+        for(int i = 0; i < playerList.Count; ++i)
+        {
+            if(playerList[i].uuid == uuid)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+    public static IEnumerator applyTexture( GameObject go) 
     {
      Mesh mesh = go.GetComponent<MeshFilter>().mesh;
      Vector2[] UVs = new Vector2[mesh.vertices.Length];
@@ -245,5 +329,16 @@ public class gameController : MonoBehaviour
      mesh.uv = UVs;
      yield break;
  }
+
+    public void releaseCardOnField(int originalPositionHash, int cardHash, int endPositionHash,string uuid)
+    {
+        
+        cardPlaying.releaseCardOnField(originalPositionHash,cardHash,endPositionHash,getPlayerNumFromUUID(uuid));
+    }
+
+    public void addCardToHand(int originalPositionHash, int cardHash, int endPlayer,int insertPosition, bool isMe)
+    {
+        cardPlaying.addCardToHand(originalPositionHash,cardHash,endPlayer,insertPosition,isMe);
+    }
 
 }
